@@ -12,6 +12,7 @@ var (
 	buf = bytes.NewBufferString(`<div t="a &lt b">
 	<!-- sldflowoef o o ae-> -->
 	<div hidden={{this.Hidden}} Enabled><div>&nbsp; ksdkfk</div></div>
+	<script>skdflsdlf s<dkf llksdkf >kkdf sdlf<div><script></script</div></script>
 	<br><fk.Fck xxx:ren="aa" ...{{this.Attrs()}} />
 </div>`)
 )

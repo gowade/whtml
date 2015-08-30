@@ -108,7 +108,7 @@ func (z *Parser) parse() error {
 			opening := z.ns.top()
 			if opening == nil || opening.Data != tok.Data {
 				return &Error{
-					Message: sfmt("Closing tag '%v' not matching.", tok.Data),
+					Message: sfmt("Closing '%v' tag not matching an opening one", tok.Data),
 					Pos:     tok.Pos,
 				}
 			}

@@ -8,6 +8,20 @@ import (
 	//"strings"
 )
 
+var (
+	rawTags = map[string]bool{
+		"iframe":   true,
+		"noembed":  true,
+		"noframes": true,
+		"noscript": true,
+		"script":   true,
+		"style":    true,
+		"textarea": true,
+		"title":    true,
+		"xmp":      true,
+	}
+)
+
 func sfmt(format string, args ...interface{}) string {
 	return fmt.Sprintf(format, args...)
 }
@@ -35,6 +49,9 @@ type Scanner struct {
 	bufpos [4]Pos  // circular buffer for position
 	bufi   int     // circular buffer index
 	bufn   int     // number of buffered characters
+
+	inRawTag  string
+	nextToken *Token
 }
 
 // New returns a new instance of Scanner.
@@ -305,13 +322,66 @@ func (s *Scanner) scanEndTag() *Token {
 	return &Token{Type: EndTagToken, Data: tagName, Pos: pos}
 }
 
+func (s *Scanner) scanRawContent(rawTag string) *Token {
+	var buf bytes.Buffer
+
+	for {
+		ch := s.read()
+		pos := s.pos()
+
+		switch ch {
+		case eof:
+			return s.setError(unexpected(ch, s.pos()))
+		case '<':
+			next := s.read()
+			if next == '/' {
+				endTag := s.scanName()
+				if endTag == rawTag {
+					nch := s.read()
+					if nch == '>' {
+						// raw tag ends
+						s.nextToken = &Token{Type: EndTagToken, Data: endTag, Pos: pos}
+						return &Token{Type: TextToken, Data: buf.String()}
+					} else {
+						s.unread(1)
+					}
+				}
+
+				buf.WriteString("</" + endTag)
+				continue
+			} else {
+				s.unread(1)
+			}
+		}
+
+		buf.WriteRune(ch)
+	}
+}
+
 func (s *Scanner) scan() *Token {
 	tt := s.nextTokType
 	s.nextTokType = 0
 
+	if s.nextToken != nil {
+		tok := s.nextToken
+		s.nextToken = nil
+		return tok
+	}
+
+	if s.inRawTag != "" {
+		tok := s.scanRawContent(s.inRawTag)
+		s.inRawTag = ""
+		return tok
+	}
+
 	switch tt {
 	case StartTagToken:
-		return s.scanStartTag()
+		tok := s.scanStartTag()
+		if rawTags[tok.Data] {
+			s.inRawTag = tok.Data
+		}
+
+		return tok
 
 	case EndTagToken:
 		return s.scanEndTag()
