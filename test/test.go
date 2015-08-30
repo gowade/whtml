@@ -2,17 +2,21 @@ package main
 
 import (
 	"bytes"
+	"os"
 
 	"github.com/gowade/whtml"
 	pp "github.com/tonnerre/golang-pretty"
 )
 
-func main() {
-	buf := bytes.NewBufferString(`<div>
-	<div hidden={{this.Hidden}} Enabled></div>
+var (
+	buf = bytes.NewBufferString(`<div>
+	<!-- sldflowoef o o ae-> -->
+	<div hidden={{this.Hidden}} Enabled><br/></div>
 	<fk.Fck xxx:ren="aa" ...{{this.Attrs()}} />
 </div>`)
+)
 
+func testToken() {
 	s := whtml.NewScanner(buf)
 	for {
 		tok := s.Scan()
@@ -25,5 +29,16 @@ func main() {
 			println(s.Errors.Error())
 			break
 		}
+	}
+}
+
+func main() {
+	nodes, err := whtml.Parse(buf)
+	if err != nil {
+		println("ERROR", err.Error())
+	}
+
+	for _, node := range nodes {
+		node.Render(os.Stdout)
 	}
 }

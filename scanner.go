@@ -241,7 +241,11 @@ func (s *Scanner) scanAttrs() (attrs []Attribute, err *Error) {
 func (s *Scanner) scanStartTag() *Token {
 	startPos := s.pos()
 	tagName := s.scanName()
-	var attrs []Attribute
+	ret := &Token{
+		Type: StartTagToken,
+		Data: tagName,
+		Pos:  startPos,
+	}
 
 	for {
 		ch := s.read()
@@ -255,12 +259,8 @@ func (s *Scanner) scanStartTag() *Token {
 			next := s.read()
 			switch next {
 			case '>':
-				return &Token{
-					Type:  SelfClosingTagToken,
-					Data:  tagName,
-					Attrs: attrs,
-					Pos:   startPos,
-				}
+				ret.Type = SelfClosingTagToken
+				return ret
 			default:
 				s.unread(1)
 				return s.setError(&Error{
@@ -270,16 +270,11 @@ func (s *Scanner) scanStartTag() *Token {
 			}
 
 		case ch == '>':
-			return &Token{
-				Type:  StartTagToken,
-				Data:  tagName,
-				Attrs: attrs,
-				Pos:   startPos,
-			}
+			return ret
 
 		case isWhitespace(ch):
 			var err *Error
-			attrs, err = s.scanAttrs()
+			ret.Attrs, err = s.scanAttrs()
 			if err != nil {
 				return s.setError(err)
 			}
@@ -319,6 +314,9 @@ func (s *Scanner) scan() *Token {
 
 		return &Token{Type: MustacheToken, Data: m, Pos: pos}
 
+	case CommentToken:
+		return s.scanComment()
+
 	case EOFToken:
 		return &Token{Type: EOFToken}
 	}
@@ -338,14 +336,19 @@ func (s *Scanner) scan() *Token {
 		case '<':
 			ch := s.read()
 			switch {
-			case isNameStart(ch) || ch == '/':
-				if ch == '/' {
-					s.nextTokType = EndTagToken
+			case ch == '/':
+				s.nextTokType = EndTagToken
+			case isNameStart(ch):
+				s.unread(1)
+				s.nextTokType = StartTagToken
+			case ch == '!':
+				nx1 := s.read()
+				nx2 := s.read()
+				if nx1 == '-' && nx2 == '-' {
+					s.nextTokType = CommentToken
 				} else {
-					s.unread(1)
-					s.nextTokType = StartTagToken
+					s.unread(2)
 				}
-
 			default:
 				s.unread(1)
 			}
@@ -385,21 +388,30 @@ func (s *Scanner) current() *Token {
 	return s.tokbuf
 }
 
-// scanComment consumes all characters up to "*/", inclusive.
-// This function assumes that the initial "/*" have just been consumed.
-func (s *Scanner) scanComment() {
+// scanComment consumes all characters up to "-->", inclusive.
+// This function assumes that the initial "<!--" have just been consumed.
+func (s *Scanner) scanComment() *Token {
+	var buf bytes.Buffer
+	startPos := s.pos()
+
 	for {
 		ch0 := s.read()
 		if ch0 == eof {
 			break
-		} else if ch0 == '*' {
-			if ch1 := s.read(); ch1 == '/' {
+		} else if ch0 == '-' {
+			ch1 := s.read()
+			ch2 := s.read()
+			if ch1 == '-' && ch2 == '>' {
 				break
 			} else {
-				s.unread(1)
+				s.unread(2)
 			}
 		}
+
+		buf.WriteRune(ch0)
 	}
+
+	return &Token{Type: CommentToken, Data: buf.String(), Pos: startPos}
 }
 
 // scanName consumes a name.
