@@ -2,6 +2,7 @@ package whtml
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 )
 
@@ -57,14 +58,19 @@ func (node *Node) render(w *bufio.Writer, depth int) {
 			}
 		}
 
-		w.WriteString(">\n")
+		if node.FirstChild == nil {
+			w.WriteString("/>")
+			return
+		}
+
+		w.WriteRune('>')
 
 		for c := node.FirstChild; c != nil; c = c.NextSibling {
+			w.WriteRune('\n')
 			c.render(w, depth+1)
 		}
 
 		w.WriteRune('\n')
-
 		for i := 0; i < depth; i++ {
 			w.WriteString("  ")
 		}
@@ -72,10 +78,8 @@ func (node *Node) render(w *bufio.Writer, depth int) {
 		w.WriteString(sfmt("</%v>", node.Data))
 
 	case TextNode:
-		w.WriteString(node.Data)
+		w.WriteString(fmt.Sprintf("%q", node.Data))
 	}
-
-	w.WriteRune('\n')
 }
 
 // AppendChild adds a node c as a child of n.

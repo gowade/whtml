@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	buf = bytes.NewBufferString(`<div>
+	buf = bytes.NewBufferString(`<div t="a &lt b">
 	<!-- sldflowoef o o ae-> -->
-	<div hidden={{this.Hidden}} Enabled><br/></div>
-	<fk.Fck xxx:ren="aa" ...{{this.Attrs()}} />
+	<div hidden={{this.Hidden}} Enabled><div>&nbsp; ksdkfk</div></div>
+	<br><fk.Fck xxx:ren="aa" ...{{this.Attrs()}} />
 </div>`)
 )
 

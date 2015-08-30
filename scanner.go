@@ -190,6 +190,7 @@ func (s *Scanner) scanAttrs() (attrs []Attribute, err *Error) {
 			return
 
 		case ch == '.':
+			// check for variadic attribute
 			pos := s.pos()
 			nx1 := s.read()
 			nx2 := s.read()
@@ -225,6 +226,7 @@ func (s *Scanner) scanAttrs() (attrs []Attribute, err *Error) {
 			if err != nil {
 				return attrs, err
 			} else {
+				attr.Val = string(unescape([]byte(attr.Val), true))
 				attrs = append(attrs, attr)
 			}
 
@@ -270,6 +272,9 @@ func (s *Scanner) scanStartTag() *Token {
 			}
 
 		case ch == '>':
+			if voidElements[ret.Data] {
+				ret.Type = SelfClosingTagToken
+			}
 			return ret
 
 		case isWhitespace(ch):
@@ -287,11 +292,17 @@ func (s *Scanner) scanStartTag() *Token {
 
 func (s *Scanner) scanEndTag() *Token {
 	pos := s.pos()
-	name := s.scanName()
+	tagName := s.scanName()
 	if ch := s.read(); ch != '>' {
 		return s.setError(unexpected(ch, s.pos()))
 	}
-	return &Token{Type: EndTagToken, Data: name, Pos: pos}
+
+	if voidElements[tagName] {
+		return s.setError(newError(
+			sfmt("HTML void element '%v' cannot have closing tag", tagName),
+			pos))
+	}
+	return &Token{Type: EndTagToken, Data: tagName, Pos: pos}
 }
 
 func (s *Scanner) scan() *Token {
@@ -330,6 +341,10 @@ func (s *Scanner) scan() *Token {
 		pos := s.pos()
 		// Check against individual code points
 		switch ch {
+		case '\n':
+			s.skipWhitespace()
+			continue
+
 		case eof:
 			s.nextTokType = EOFToken
 
@@ -366,7 +381,7 @@ func (s *Scanner) scan() *Token {
 			if tbuf.Len() > 0 {
 				return &Token{
 					Type: TextToken,
-					Data: tbuf.String(),
+					Data: string(unescape(tbuf.Bytes(), false)),
 					Pos:  pos,
 				}
 			} else {
@@ -427,10 +442,8 @@ func (s *Scanner) scanName() string {
 	}
 }
 
-// scanWhitespace consumes the current code point and all subsequent whitespace.
+// scanWhitespace skips the current code point and all subsequent whitespace.
 func (s *Scanner) skipWhitespace() {
-	//var buf bytes.Buffer
-	//buf.WriteRune(s.curr())
 	for {
 		ch := s.read()
 		if ch == eof {
@@ -439,9 +452,7 @@ func (s *Scanner) skipWhitespace() {
 			s.unread(1)
 			break
 		}
-		//buf.WriteRune(ch)
 	}
-	//return buf
 }
 
 // This function will initially check for any characters that have been pushed
