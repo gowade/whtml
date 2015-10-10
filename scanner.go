@@ -613,5 +613,5 @@ func isNameStart(ch rune) bool {
 
 // isName returns true if the character is a tag name code point.
 func isName(ch rune) bool {
-	return isNameStart(ch) || ch == '-' || ch == ':' || ch == '.'
+	return isNameStart(ch) || isDigit(ch) || ch == '-' || ch == ':' || ch == '.'
 }
